@@ -87,5 +87,100 @@ float lerp(const float &a, const float &b, const float &mix){
 
 // Checks if a given ray intersects any objects in the scene and shades the intersection points accordingly
 Vec3f trace(const Vec3f &rayOrig, const Vec3f &rayDir, const std::vector<Sphere> &spheres, const int &depth){
-    // NOT IMPLEMENTED
+    float tnear INFINITY;
+    const Sphere* sphere = NULL;
+
+    // find intersections and determine the closest one
+    for (unsigned i = 0; i < spheres.size(); i++){
+        float t0 = INFINITY;
+        float t1 = INFINITY;
+
+        if (spheres[i].intersect(rayOrig, rayDir, t0, t1)){
+            if (t0 < 0) t0 = t1; // if the ray starts inside the sphere
+            if (t0 < tnear){ // store closest intersection
+                tnear = t0;
+                sphere = &spheres[i];
+            }
+        }
+    }
+
+    if (!sphere) return Vec3f(2); // no intersections --> background color
+
+    Vec3f surfaceColor = 0; // color of the object
+    Vec3f pInt = rayOrig + rayDir * tnear; // point (coordinates) of intersection
+    Vec3f nInt = pInt - sphere->center; // normal at the point of intersection
+    nInt.normalize();
+
+    float bias = 1e-4;
+    bool inside = false;
+
+    // if the directions of the ray and normal are not opposite, we are inside the sphere 
+    if (rayDir.dot(nInt) > 0){
+        nInt = -nInt;
+        inside = true;
+    }
+
+    if ((sphere->transparency > 0 || sphere->reflection > 0) && depth < MAX_RAY_DEPTH){
+        float facingRatio = -rayDir.dot(nInt);
+        float fresnelEffect = lerp(pow(1 - facingRatio, 3), 1, 0.1);
+        Vec3f reflDir = rayDir - nInt * 2 * rayDir.dot(nInt);
+        reflDir.normalize();
+        Vec3f reflexion = trace(pInt + nInt * bias, reflDir, spheres, depth + 1);
+        Vec3f refraction = 0;
+
+        // compute refraction ray
+        if (sphere->transparency){
+            float indexOfRefraction = 1.1;
+            float eta = (inside) ? indexOfRefraction : 1 / indexOfRefraction; // ratio of refractive indices
+            float cosi = -nInt.dot(rayDir); // angle between surface normal and incoming ray
+            float k = 1 - eta * eta * (1 - cosi * cosi);
+            Vec3f refrDir = rayDir * eta + nInt * (eta * cosi - sqrt(k));
+            refrDir.normalize();
+            refraction = trace(pInt + nInt * bias, refrDir, spheres, depth + 1);
+        }
+
+        // final result
+        surfaceColor = (reflexion * fresnelEffect + refraction *
+            (1 - fresnelEffect) * sphere->transparency) *sphere->surfaceColor;
+    } else {
+        // it's a diffuse object
+        for (unsigned i = 0; i < spheres.size(); i++){
+            // loop through light sources, cast shadow rays and check for objects in the way
+            if (spheres[i].emissionColor.x > 0){
+                Vec3f transmission = 1;
+                Vec3f lightDir = spheres[i].center - pInt;
+                lightDir.normalize();
+
+                for (unsigned j = 0; j < spheres.size(); j++){
+                    if (i != j){
+                        float t0, t1;
+                        if (spheres[j].intersect(pInt + nInt * bias, lightDir, t0, t1)){
+                            transmission = 0; // light is blocked
+                            break;
+                        }
+                    }
+                }
+                surfaceColor += sphere->surfaceColor * transmission *
+                std::max(float(0), nInt.dot(lightDir)) * spheres[i].emissionColor;
+            }
+        }
+    }
+
+    return surfaceColor + sphere->emissionColor;
+}
+
+void render(const std::vector<Sphere> &spheres){
+    unsigned width = 640, height = 480;
+    float aspectRatio = width / float(height);
+    Vec3f* image = new Vec3f[width *  height];
+    Vec3f* pixel = image;
+    float fov = 30;
+    float angle = tan(M_PI / 2 * fov / 180.);
+
+    for (unsigned y = 0; y < height; y++){
+        for (unsigned x = 0; x < width; x++){
+            // perspective projection
+            // ...
+        }
+    }
 }
