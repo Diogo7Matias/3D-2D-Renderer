@@ -4,9 +4,8 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
-#include <cassert>
 
-#define MAX_RAY_DEPTH 5; // max recursion depth allowed
+#define MAX_RAY_DEPTH 5 // max recursion depth allowed
 
 // 3D Vector class
 template<typename T> class Vec3 {
@@ -35,12 +34,12 @@ public:
     Vec3<T> operator + (const Vec3<T> &v) const {return Vec3<T>(x + v.x, y + v.y, z + v.z);}
     Vec3<T> operator - (const Vec3<T> &v) const {return Vec3<T>(x - v.x, y - v.y, z - v.z);}
     Vec3<T> operator * (const T &k) const {return Vec3<T>(x * k, y * k, z * k);}
-    Vec3<T> operator * (const Vec3<T> &v) const (return Vec3<T>(x * v.x, y * v.y, z * v.z);)
+    Vec3<T> operator * (const Vec3<T> &v) const {return Vec3<T>(x * v.x, y * v.y, z * v.z);}
     Vec3<T>& operator += (const Vec3<T> &v) {x += v.x, y += v.y, z += v.z; return *this;}
     Vec3<T>& operator *= (const Vec3<T> &v) {x *= v.x, y *= v.y, z *= v.z; return *this;}
     Vec3<T> operator - () const {return Vec3<T>(-x, -y, -z);}
 
-    std::ostream& operator << (std::ostream &os, const Vec3<T> &v){
+    friend std::ostream& operator << (std::ostream &os, const Vec3<T> &v){
         os << "[" << v.x << " " << v.y << " " << v.z << "]";
         return os;
     }
@@ -67,7 +66,7 @@ public:
 
     // checks if a ray with origin 'rayOrig' and direction 'rayDir' intersects the sphere
     // the points in the ray where it enters and leaves the sphere are stored in t0 and t1, respectively
-    bool intersect(const Vec3f &rayOrig, const Vec3f &rayDir, float &t0, float &t1){
+    bool intersect(const Vec3f &rayOrig, const Vec3f &rayDir, float &t0, float &t1) const {
         Vec3f l = center - rayOrig;
         float tca = l.dot(rayDir); // distance given by projecting l onto ray
         if (tca < 0) return false; // ray is pointing away from the sphere
@@ -87,7 +86,7 @@ float lerp(const float &a, const float &b, const float &mix){
 
 // Checks if a given ray intersects any objects in the scene and shades the intersection points accordingly
 Vec3f trace(const Vec3f &rayOrig, const Vec3f &rayDir, const std::vector<Sphere> &spheres, const int &depth){
-    float tnear INFINITY;
+    float tnear = INFINITY;
     const Sphere* sphere = NULL;
 
     // find intersections and determine the closest one
@@ -136,7 +135,7 @@ Vec3f trace(const Vec3f &rayOrig, const Vec3f &rayDir, const std::vector<Sphere>
             float k = 1 - eta * eta * (1 - cosi * cosi);
             Vec3f refrDir = rayDir * eta + nInt * (eta * cosi - sqrt(k));
             refrDir.normalize();
-            refraction = trace(pInt + nInt * bias, refrDir, spheres, depth + 1);
+            refraction = trace(pInt - nInt * bias, refrDir, spheres, depth + 1);
         }
 
         // final result
@@ -170,17 +169,59 @@ Vec3f trace(const Vec3f &rayOrig, const Vec3f &rayDir, const std::vector<Sphere>
 }
 
 void render(const std::vector<Sphere> &spheres){
-    unsigned width = 640, height = 480;
+    unsigned width = 1920, height = 1080;
     float aspectRatio = width / float(height);
     Vec3f* image = new Vec3f[width *  height];
     Vec3f* pixel = image;
     float fov = 30;
     float angle = tan(M_PI / 2 * fov / 180.);
 
+    // perspective projection
     for (unsigned y = 0; y < height; y++){
         for (unsigned x = 0; x < width; x++){
-            // perspective projection
-            // ...
+            // normalize coordinates
+            float xx = (2 * ((x + 0.5) / float(width)) - 1) * angle * aspectRatio;
+            float yy = (1 - 2 * ((y + 0.5) / float(height))) * angle;
+            
+            // define direction and trace
+            Vec3f rayDir(xx, yy, -1);
+            rayDir.normalize();
+            *pixel = trace(Vec3f(0), rayDir, spheres, 0);
+            pixel++;
         }
     }
+
+    // save to PPM image
+    std::ofstream ofs("./result.ppm", std::ios::out | std::ios::binary);
+    ofs << "P6\n" << width << " " << height << "\n255\n"; // header
+    for (unsigned i = 0; i < width * height; i++){ // rest of the file
+        ofs << (unsigned char)(std::min(float(1), image[i].x) * 255) <<
+            (unsigned char)(std::min(float(1), image[i].y) * 255) <<
+            (unsigned char)(std::min(float(1), image[i].z) * 255);
+    }
+    ofs.close();
+    delete [] image; // deallocate pixel array
+}
+
+int main(int argc, char** argv){
+    std::vector<Sphere> spheres;
+
+    // first sphere acts as the ground
+    spheres.push_back(Sphere(Vec3f(0, -10004, -20), 10000, Vec3f(0.20, 0.20, 0.20), 0.0, 0));
+    // red sphere
+    spheres.push_back(Sphere(Vec3f(2, 1, -40), 5, Vec3f(1.00, 0.32, 0.36), 0.2, 1));
+    // yellow sphere
+    spheres.push_back(Sphere(Vec3f(5, -2, -25), 2, Vec3f(0.98, 0.73, 0.01), 0.5, 1));
+    // floating sphere
+    spheres.push_back(Sphere(Vec3f(7, 4, -19), 3, Vec3f(0.98, 0.73, 0.01), 0.2, 1));
+    // light blue sphere
+    spheres.push_back(Sphere(Vec3f(-2, 0, -30), 4, Vec3f(0.30, 0.78, 1.00), 0.2, 1));
+    // dark sphere
+    spheres.push_back(Sphere(Vec3f(-6, 0, -20), 4, Vec3f(0.15, 0.15, 0.15), 0.0, 1));
+    // light sources
+    spheres.push_back(Sphere(Vec3f(10, 20, -10), 3, Vec3f(0.00, 0.00, 0.00), 0.0, 0, Vec3f(5)));
+    spheres.push_back(Sphere(Vec3f(-3, 20, -5), 3, Vec3f(0.00, 0.00, 0.00), 0.0, 0, Vec3f(3)));
+
+    render(spheres);
+    return 0;
 }
