@@ -1,5 +1,12 @@
-# 3D Renderer
+# 3D / 2D Renderer
 
-A simple 3D Renderer made in C++.
-## List of features:
+A C++ project serving as an introduction to graphics programming. <br>
+It covers fundamental concepts for generating 2D and 3D images.
+
+<i> I intend to expand this project over time. </i>
+## 3D | List of features:
 - RayTracing Algorithm
+  
+## 2D | List of features:
+- Line Drawing Algorithm
+  
