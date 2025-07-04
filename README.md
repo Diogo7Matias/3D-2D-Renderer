@@ -9,4 +9,7 @@ It covers fundamental concepts for generating 2D and 3D images.
   
 ## 2D | List of features:
 - Line Drawing Algorithm
+- Function for drawing filled triangles
+- Zbuffer to avoid rendering pixels that shouldn't be visible
+- Rendering Models (from .obj files) using the methods above
   
