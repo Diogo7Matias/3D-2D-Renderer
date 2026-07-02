@@ -1,3 +1,5 @@
+#include <algorithm>
+#include <cmath>
 #include <iostream>
 #include <vector>
 
@@ -11,25 +13,22 @@ void Renderer::render(const Scene &scene, const Camera &camera) {
     std::vector<Material> materials = scene.materials();
     std::vector<Light*> lights = scene.getLights();
     
-    // clear fragment buffer
-    memset(_fragmentBuffer, 0, _window->getWidth() * _window->getHeight() * sizeof(Fragment));
+    _fragmentBuffer.clear();
+    _zbuffer.clear(std::numeric_limits<float>::infinity());
 
     Mat4 view = camera.viewMatrix();
     Mat4 projection = camera.projectionMatrix();
     Mat4 viewport = _window->viewportMatrix();
     Mat4 normalMatrix = view.inverseTranspose();
 
+    // transform lights and vertices to view space (camera coordinates)
     for (Light* light : lights) {
         if (PointLight* pl = dynamic_cast<PointLight*>(light)) {
             pl->setViewPosition(view);
         }
     }
-    
-    // transform to view space (camera coordinates)
     for (Vertex &v : vertices) {
-        Vec3 &pos = v.position;
-
-        pos = (view * pos.toVec4()).toVec3();
+        v.position = (view * v.position.toVec4()).toVec3();
         Vec4 n = normalMatrix * Vec4(v.normal.x, v.normal.y, v.normal.z, 0.0f);
         v.normal = Vec3(n.x, n.y, n.z).normalize();
     }
@@ -39,11 +38,13 @@ void Renderer::render(const Scene &scene, const Camera &camera) {
         Vertex& v1 = vertices[t.v1];
         Vertex& v2 = vertices[t.v2];
 
+        if (isBackFace(t, vertices)) continue;
+
         // assuming flat shading only for now
         Vec3 centroid = (v0.position + v1.position + v2.position) / 3.0f;
         Vec3 normal = (v0.normal + v1.normal + v2.normal).normalize();
 
-        Color color = Color(0x000000);
+        Color color = materials[v0.materialIndex].getColor();
         for (Light* light : lights) {
             color += light->compute(centroid, normal, materials[v0.materialIndex]);
         }
@@ -71,16 +72,12 @@ Vec3 Renderer::clipAndProject(const Vec3& pos, const Mat4& projection) {
     return p;
 }
 
-// Writes vertex to fragment buffer
-void Renderer::setFragmentColor(const Vec3 &v, Color &color) {
-    int x = (int)v.x;
-    int y = (int)v.y;
-    
-    if (x >= 0 && x < _window->getWidth() && y >= 0 && y < _window->getHeight()) {
-        int index = y * _window->getWidth() + x;
-        _fragmentBuffer[index].position = v;
-        _fragmentBuffer[index].color = color.asVec3();
-    }
+bool Renderer::isBackFace(const Triangle &t, const std::vector<Vertex> &vertices) {
+    const Vertex& v0 = vertices[t.v0];
+    const Vertex& v1 = vertices[t.v1];
+    const Vertex& v2 = vertices[t.v2];
+    Vec3 normal = (v0.normal + v1.normal + v2.normal).normalize();
+    return normal.z > 0;
 }
 
 // Cohen-Sutherland clipping algorithm
@@ -114,6 +111,16 @@ void Renderer::clipping(Vec3 &v) {
     }
 }
 
+// Writes vertex to fragment buffer
+void Renderer::setFragmentColor(const Vec3 &v, Color &color) {
+    int x = (int)v.x;
+    int y = (int)v.y;
+    
+    if (x >= 0 && x < _window->getWidth() && y >= 0 && y < _window->getHeight()) {
+        _fragmentBuffer.set(x, y, {x, y, color.asVec3()});
+    }
+}
+
 // this function implements the Bresenham's line drawing algorithm
 void Renderer::line(int x0, int y0, int x1, int y1){
     // parameterization of the segment [A, B] where A = (x0, y0), B = (x1, y1):
@@ -122,7 +129,7 @@ void Renderer::line(int x0, int y0, int x1, int y1){
     // t is a parameter between 0 and 1.
 
     if (x0 == x1 && y0 == y1) {
-        _fragmentBuffer[y0 * _window->getWidth() + x0].color = Vec3(1, 1, 1); // white pixel
+        _fragmentBuffer.set(x0, y0, {x0, y0, Vec3(1, 1, 1)}); // white pixel
         return;
     }
 
@@ -145,15 +152,15 @@ void Renderer::line(int x0, int y0, int x1, int y1){
 
         // check if we had previously transposed the coordinates and de-transpose if so
         if (steep){
-            _fragmentBuffer[x * _window->getWidth() + y].color = Vec3(1, 1, 1); // white pixel
+            _fragmentBuffer.set(y, x, {y, x, Vec3(1, 1, 1)}); // white pixel
         } else {
-            _fragmentBuffer[y * _window->getWidth() + x].color = Vec3(1, 1, 1); // white pixel
+            _fragmentBuffer.set(x, y, {x, y, Vec3(1, 1, 1)}); // white pixel
         }
     }
 }
 
-double signed_triangle_area(int x0, int y0, int x1, int y1, int x2, int y2){
-    return ((y1 - y0) * (x1 + x0) + (y2 - y1) * (x2 + x1) + (y0 - y2) * (x0 + x2)) / 2;
+double signed_triangle_area(float x0, float y0, float x1, float y1, float x2, float y2){
+    return ((x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0)) / 2.0;
 }
 
 void Renderer::triangle(const Vec3 &p1, const Vec3 &p2, const Vec3 &p3, Color color){
@@ -162,7 +169,7 @@ void Renderer::triangle(const Vec3 &p1, const Vec3 &p2, const Vec3 &p3, Color co
     int xmax = std::max(std::max(p1.x, p2.x), p3.x);
     int ymax = std::max(std::max(p1.y, p2.y), p3.y);
     double total_area = signed_triangle_area(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y);
-    if (total_area < 1) return;
+    if (std::abs(total_area) < 1) return;
 
     // each pixel is drawn separately so we can take advantage of parallelism
     #pragma omp parallel for
@@ -176,13 +183,13 @@ void Renderer::triangle(const Vec3 &p1, const Vec3 &p2, const Vec3 &p3, Color co
             // check if the point falls outside the triangle
             if (alpha < 0 || beta < 0 || gamma < 0) continue;
 
-            unsigned char z = alpha * p1.z + beta * p2.z + gamma * p3.z;
+            float z = alpha * p1.z + beta * p2.z + gamma * p3.z;
 
             // if the pixel is behind something, dont paint it
-            // if (z <= zbuffer.get(x, y)[0]) continue;
+            if (z >= *_zbuffer.get(x, y)) continue;
 
-            // zbuffer.set(x, y, {z});
-            _fragmentBuffer[y * _window->getWidth() + x].color = color.asVec3();
+            _zbuffer.set(x, y, {z});
+            _fragmentBuffer.set(x, y, {x, y, color.asVec3()});
         }
     }
 }

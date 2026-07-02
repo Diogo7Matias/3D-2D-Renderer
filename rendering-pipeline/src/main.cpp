@@ -22,34 +22,49 @@ const int HEIGHT = 600;
 Scene scene = Scene();
 
 void createObjects() {
-    Vec3 pos = Vec3(0, 0, -2);
-    Color color = Color(0xFFFFFFFF);
+    Material mat = DiffuseMaterial(Color(0xFF0000FF), 0.40, 1);
+    Material mat2 = DiffuseMaterial(Color(0xFF00FF00), 0.40, 1);
 
-    Geometry::Cube cube = Geometry::Cube(pos, 1);
-    Geometry::Sphere sphere = Geometry::Sphere(pos, 1, 16);
-    Material mat = DiffuseMaterial(color, 0.40, 1);
+    Geometry::Cube bigCube = Geometry::Cube(Vec3(2, 0, -3), 1);
+    Geometry::Cube smallCube = Geometry::Cube(Vec3(2, -0.25, -2.25), 0.5);
+    Geometry::Sphere sphere = Geometry::Sphere(Vec3(0, 0, -2), 1, 32);
 
-    Mesh mesh = Mesh(sphere, mat);
-    scene.add(mesh);
+    Mesh bcMesh = Mesh(bigCube, mat);
+    scene.add(bcMesh);
+    Mesh scMesh = Mesh(smallCube, mat2);
+    scene.add(scMesh);
+    Mesh sMesh = Mesh(sphere, mat);
+    scene.add(sMesh);
 }
 
 void createCameras() {
+    float aspect = (float)WIDTH / (float)HEIGHT;
+    float halfHeight = 10;
+    float halfWidth = halfHeight * aspect;
     Vec3 pos = Vec3(0, 0, 0);
 
-    std::unique_ptr<Camera> camera1 = std::make_unique<PerspectiveCamera>(pos, 90, (float)WIDTH / (float)HEIGHT, 0.1, 100);
+    std::unique_ptr<Camera> camera1 = std::make_unique<PerspectiveCamera>(pos, 90, aspect, 0.1, 100);
     scene.add(std::move(camera1));
 
-    std::unique_ptr<Camera> camera2 = std::make_unique<OrthographicCamera>(pos, -10, 10, 10, -10, 0.1, 100);
+    std::unique_ptr<Camera> camera2 = std::make_unique<OrthographicCamera>(
+        pos,
+        -halfWidth, halfWidth,
+        halfHeight, -halfHeight,
+        0.1, 100
+    );
     scene.add(std::move(camera2));
 }
 
 void createLights() {
-    Vec3 pos = Vec3(5, 5, -2);
+    std::unique_ptr<Light> ambient_l = std::make_unique<AmbientLight>(Color(0xffffff));
+    scene.add(std::move(ambient_l));
 
-    std::unique_ptr<Light> light1 = std::make_unique<AmbientLight>(Color(0xffffff));
+    Vec3 pos1 = Vec3(5, 5, -1.5);
+    std::unique_ptr<Light> light1 = std::make_unique<PointLight>(pos1, Color(0xff0000));
     scene.add(std::move(light1));
 
-    std::unique_ptr<Light> light2 = std::make_unique<PointLight>(pos, Color(0xff0000));
+    Vec3 pos2 = Vec3(0, -5, -1.5);
+    std::unique_ptr<Light> light2 = std::make_unique<PointLight>(pos2, Color(0xffffff));
     scene.add(std::move(light2));
 }
 
@@ -98,17 +113,16 @@ int main() {
         memset(framebuffer, 0, sizeof(framebuffer));
 
         renderer.render(scene, scene.getCamera(cameraIndex));
-        Fragment* fragments = renderer.fragmentBuffer();
+        Buffer<Fragment> fragmentBuffer = renderer.fragmentBuffer();
 
         // write pixels to framebuffer
         for (int y = 0; y < HEIGHT; ++y) {
             for (int x = 0; x < WIDTH; ++x) {
-                int srcIndex = y * WIDTH + x;
-                int dstIndex = (HEIGHT - 1 - y) * WIDTH + x; // flip y coordinate
-                Fragment& frag = fragments[srcIndex];
+                int index = (HEIGHT - 1 - y) * WIDTH + x; // flip y coordinate
+                const Fragment& frag = *fragmentBuffer.get(x, y);
                 // only write fragments that have been set (non-black color)
                 if (frag.color.x > 0 || frag.color.y > 0 || frag.color.z > 0) {
-                    framebuffer[dstIndex] = Color::fromVec3(frag.color).value();
+                    framebuffer[index] = Color::fromVec3(frag.color).value();
                 }
             }
         }

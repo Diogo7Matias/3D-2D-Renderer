@@ -140,7 +140,7 @@ namespace Geometry {
                         _center.y + _radius * std::cos(phi),
                         _center.z + _radius * std::sin(phi) * std::sin(theta)
                     );
-                    Vec3 normal = (position - center).normalize();
+                    Vec3 normal = (position - _center).normalize();
                     vertices.push_back(Vertex(position, normal));
                 }
             }

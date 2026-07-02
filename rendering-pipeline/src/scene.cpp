@@ -5,17 +5,23 @@ void Scene::add(Mesh mesh) {
     int materialIndex = _materials.size();
     addMaterial(mesh.material());
 
+    const int vertexOffset = static_cast<int>(_vertices.size());
+
     for (Vertex v : mesh.geometry().getVertices()) {
         v.materialIndex = materialIndex;
         addVertex(v);
     }
 
     for (const auto& edge : mesh.geometry().getEdges()) {
-        addEdge(edge.first, edge.second);
+        addEdge(edge.first + vertexOffset, edge.second + vertexOffset);
     }
 
     for (const auto& tri : mesh.geometry().getTriangles()) {
-        addTriangle(tri);
+        addTriangle(Triangle(
+            tri.v0 + vertexOffset,
+            tri.v1 + vertexOffset,
+            tri.v2 + vertexOffset
+        ));
     }
 }
 

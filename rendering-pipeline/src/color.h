@@ -35,6 +35,11 @@ public:
         return Vec3(red(), green(), blue());
     }
 
+    Color toGreyscale() const {
+        Vec3 grey = Vec3(0.299 * red()) + (0.587 * green()) + (0.114 * blue());
+        return Color::fromVec3(grey);
+    }
+
     ///
     ////// * Operator Overloads
     ///
