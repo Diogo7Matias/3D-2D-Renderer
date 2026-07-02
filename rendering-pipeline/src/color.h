@@ -31,7 +31,7 @@ public:
     float green() const { return ((_value >> 8) & 0xFF) / 255.0f; }
     float blue() const { return ((_value >> 0) & 0xFF) / 255.0f; }
     
-    Vec3 asVec3() {
+    Vec3 asVec3() const {
         return Vec3(red(), green(), blue());
     }
 

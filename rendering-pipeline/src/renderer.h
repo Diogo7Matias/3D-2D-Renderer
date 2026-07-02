@@ -42,6 +42,8 @@ class Renderer {
     Window* _window;
     Buffer<Fragment> _fragmentBuffer;
     Buffer<float> _zbuffer;
+    bool _wireframe = false;
+    bool _depthShading = false;
 
 public:
     Renderer(Window* window) 
@@ -53,17 +55,37 @@ public:
         _zbuffer.clear(std::numeric_limits<float>::infinity());
     }
 
-public:
-    void render(const Scene &scene, const Camera &camera);
-
     Buffer<Fragment> fragmentBuffer() const { return _fragmentBuffer; }
     Buffer<float> zbuffer() const { return _zbuffer; }
 
+public:
+    /**
+     * The main function of this renderer.
+     * It renders the scene from the perspective of the given camera.
+     * The result is stored in the fragment buffer.
+     * @param scene The scene to render.
+     * @param camera The camera to render from.
+     */
+    void render(const Scene &scene, const Camera &camera);
+
+    /**
+     * Sets the wireframe mode.
+     * @param on true to enable wireframe mode, false to disable it.
+     */
+    void setWireframe(bool on) { _wireframe = on; }
+
+    /**
+     * Sets the depth shading mode.
+     * @param on true to enable depth shading, false to disable it.
+     */
+    void setDepthShading(bool on) { _depthShading = on; }
+
 private:
     void setFragmentColor(const Vec3 &v, Color &color);
+    Color applyDepthShading(const Color &color, float z) const;
     bool isBackFace(const Triangle &t, const std::vector<Vertex> &vertices);
     Vec3 clipAndProject(const Vec3& pos, const Mat4& projection);
     void clipping(Vec3 &v);
-    void line(int x0, int y0, int x1, int y1);
-    void triangle(const Vec3 &p1, const Vec3 &p2, const Vec3 &p3, Color color);
+    void line(const Vec3 &p0, const Vec3 &p1, float z0, float z1, const Color &color);
+    void triangle(const Vec3 &p1, const Vec3 &p2, const Vec3 &p3, float z1, float z2, float z3, const Color &color);
 };
