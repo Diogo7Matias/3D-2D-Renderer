@@ -6,10 +6,10 @@
 #include "window.h"
 #include "renderer.h"
 #include "scene.h"
-#include "geometry.h"
-#include "material.h"
-#include "mesh.h"
-#include "color.h"
+#include "mesh/mesh.h"
+#include "mesh/geometry.h"
+#include "mesh/material.h"
+#include "utils/color.h"
 #include "camera.h"
 
 /////////////////////////////////////////////////////////////////////////

@@ -3,7 +3,7 @@
 #include "scene.h"
 #include "camera.h"
 #include "window.h"
-#include "color.h"
+#include "utils/color.h"
 
 struct Fragment {
     int x, y;

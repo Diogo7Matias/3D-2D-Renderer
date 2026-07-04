@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdint>
-#include "math/vec3.h"
+#include "../math/vec3.h"
 
 class Color {
     uint32_t _value;

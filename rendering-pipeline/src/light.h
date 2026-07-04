@@ -1,7 +1,7 @@
 #pragma once
 
-#include "color.h"
-#include "material.h"
+#include "utils/color.h"
+#include "mesh/material.h"
 
 class Light {
     

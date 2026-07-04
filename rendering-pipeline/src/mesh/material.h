@@ -1,6 +1,6 @@
 #pragma once
 
-#include "color.h"
+#include "../utils/color.h"
 
 class Material {
     Color _color;

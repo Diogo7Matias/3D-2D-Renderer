@@ -1,9 +1,9 @@
 #pragma once
 
 #include "math/vec3.h"
-#include "geometry.h"
+#include "mesh/mesh.h"
+#include "mesh/geometry.h"
 #include "camera.h"
-#include "mesh.h"
 #include "light.h"
 
 #include <vector>

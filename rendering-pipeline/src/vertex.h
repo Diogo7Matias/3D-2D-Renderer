@@ -1,7 +1,7 @@
 #pragma once
 
 #include "math/vec3.h"
-#include "color.h"
+#include "utils/color.h"
 
 struct Vertex {
     Vec3 position;

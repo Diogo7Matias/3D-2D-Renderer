@@ -6,7 +6,6 @@
 #include "renderer.h"
 #include "math/vec4.h"
 #include "math/mat4.h"
-#include "color.h"
 
 void Renderer::render(const Scene &scene, const Camera &camera) {
     std::vector<Vertex> vertices = scene.vertices();
