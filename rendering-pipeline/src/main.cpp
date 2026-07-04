@@ -83,7 +83,7 @@ void display(uint32_t* framebuffer, SDL_Renderer* sdl_renderer, SDL_Texture* tex
     // clear to black
     std::fill(framebuffer, framebuffer + WIDTH * HEIGHT, 0);
     renderer.render(scene, scene.getCamera(cameraIndex));
-    Buffer<Fragment> fragmentBuffer = renderer.fragmentBuffer();
+    const Buffer<Fragment> &fragmentBuffer = renderer.fragmentBuffer();
 
     // write pixels to framebuffer
     for (int y = 0; y < HEIGHT; ++y) {

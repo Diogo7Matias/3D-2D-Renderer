@@ -18,7 +18,7 @@ public:
     }
 
     Camera() {
-        _position = Vec3(1, 1, 1);
+        _position = Vec3(0, 0, 0);
         _direction = Vec3(0, 0, -1);
         _up = Vec3(0, 1, 0);
     }
@@ -47,7 +47,8 @@ public:
     }
 
     void setRoll(Vec3 up) {
-        // TODO
+        _up = up - _direction * (_direction.dot(up));
+        _up = _up.normalize();
     }
 
     Mat4 viewMatrix() const {
@@ -126,15 +127,19 @@ public:
     
     float fov() const { return _fov; }
 
+    void setFov(float fov) { _fov = fov; }
+
     float aspectRatio() const { return _aspectRatio; }
 
+    void setAspect(float aspectRatio) { _aspectRatio = aspectRatio; }
+    
     float near() const { return _near; }
 
     float far() const { return _far; }
 
     Mat4 projectionMatrix() const override {
-        float fov_rad = (_fov / getZoom()) * M_PI / 180;
-        float f = 1.0 / std::tan(fov_rad / 2);
+        float fov_rad = _fov * M_PI / 180.0f;
+        float f = getZoom() / std::tan(fov_rad / 2.0f);
         Vec4 u1 = Vec4(f / _aspectRatio, 0, 0, 0);
         Vec4 u2 = Vec4(0, f, 0, 0);
         Vec4 u3 = Vec4(0, 0, (_far + _near) / (_far - _near), (2 * _far * _near) / (_near - _far));
