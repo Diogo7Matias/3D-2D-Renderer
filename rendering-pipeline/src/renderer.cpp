@@ -50,28 +50,27 @@ void Renderer::render(const Scene &scene, const Camera &camera) {
             Vertex& v0 = vertices[t.v0];
             Vertex& v1 = vertices[t.v1];
             Vertex& v2 = vertices[t.v2];
+            Material& material = materials[v0.materialIndex];
     
             if (isBackFace(t, vertices)) continue;
-    
-            // assuming flat shading only for now
-            Vec3 centroid = (v0.position + v1.position + v2.position) / 3.0f;
-            Vec3 normal = (v0.normal + v1.normal + v2.normal).normalize();
-    
-            Color color = materials[v0.materialIndex].getColor();
-            for (Light* light : lights) {
-                if (!_depthShading) {
-                    color += light->compute(centroid, normal, materials[v0.materialIndex]);
-                }
+            
+            if (!_depthShading) {
+                computeLighting(v0, v1, v2, material, lights);
             }
     
             Vec4 proj0 = clipAndProject(v0.position, projection).toVec4();
             Vec4 proj1 = clipAndProject(v1.position, projection).toVec4();
             Vec4 proj2 = clipAndProject(v2.position, projection).toVec4();
+            
             Vec3 p0 = (viewport * proj0).toVec3();
             Vec3 p1 = (viewport * proj1).toVec3();
             Vec3 p2 = (viewport * proj2).toVec3();
+            
+            Vertex v0cpy = Vertex(p0, v0.normal, v0.color, v0.materialIndex);
+            Vertex v1cpy = Vertex(p1, v1.normal, v1.color, v1.materialIndex);
+            Vertex v2cpy = Vertex(p2, v2.normal, v2.color, v2.materialIndex);
 
-            triangle(p0, p1, p2, proj0.z, proj1.z, proj2.z, color);
+            triangle(v0cpy, v1cpy, v2cpy, proj0.z, proj1.z, proj2.z, material);
         }
     }
 }
@@ -118,6 +117,33 @@ void Renderer::clipping(Vec3 &v) {
 
         if (outcode & 16) v.z = zMin; // near
         else if (outcode & 32) v.z = zMax; // far
+    }
+}
+
+void Renderer::computeLighting(Vertex &v0, Vertex &v1, Vertex &v2, const Material &material, const std::vector<Light*> lights) {
+    v0.color = v1.color = v2.color = material.getColor();
+    
+    switch (material.getShading()) {
+        case FLAT: {
+            Vec3 edge1 = v1.position - v0.position;
+            Vec3 edge2 = v2.position - v0.position;
+            Vec3 normal = edge1.cross(edge2).normalize();
+
+            for (Light* light : lights) {
+                v0.color += light->compute(v0.position, normal, material);
+                v1.color += light->compute(v1.position, normal, material);
+                v2.color += light->compute(v2.position, normal, material);
+            }
+            break;
+        }
+        case GOURAUD: {
+            for (Light* light : lights) {
+                v0.color += light->compute(v0.position, v0.normal, material);
+                v1.color += light->compute(v1.position, v1.normal, material);
+                v2.color += light->compute(v2.position, v2.normal, material);
+            }
+            break;
+        }
     }
 }
 
@@ -186,7 +212,10 @@ double signed_triangle_area(float x0, float y0, float x1, float y1, float x2, fl
     return ((x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0)) / 2.0;
 }
 
-void Renderer::triangle(const Vec3 &p1, const Vec3 &p2, const Vec3 &p3, float z1, float z2, float z3, const Color &color){
+void Renderer::triangle(const Vertex &v1, const Vertex &v2, const Vertex &v3, float z1, float z2, float z3, const Material &material) {
+    Vec3 p1 = v1.position;
+    Vec3 p2 = v2.position;
+    Vec3 p3 = v3.position;
     int xmin = std::min(std::min(p1.x, p2.x), p3.x);
     int ymin = std::min(std::min(p1.y, p2.y), p3.y);
     int xmax = std::max(std::max(p1.x, p2.x), p3.x);
@@ -210,10 +239,19 @@ void Renderer::triangle(const Vec3 &p1, const Vec3 &p2, const Vec3 &p3, float z1
 
             // if the pixel is behind something, dont paint it
             if (z >= *_zbuffer.get(x, y)) continue;
-
             _zbuffer.set(x, y, {z});
-            Color shadedColor = applyDepthShading(color, z);
-            _fragmentBuffer.set(x, y, {x, y, shadedColor.asVec3()});
+
+            Color pixelColor = v1.color;
+            if (material.getShading() == GOURAUD) {
+                pixelColor = Color::fromVec3(Vec3(
+                    alpha * v1.color.red() + beta * v2.color.red() + gamma * v3.color.red(),
+                    alpha * v1.color.green() + beta * v2.color.green() + gamma * v3.color.green(),
+                    alpha * v1.color.blue() + beta * v2.color.blue() + gamma * v3.color.blue()
+                ));
+            }
+
+            Color shadedColor = applyDepthShading(pixelColor, z);
+            setFragmentColor(Vec3(x, y, z), shadedColor);
         }
     }
 }

@@ -81,11 +81,12 @@ public:
     void setDepthShading(bool on) { _depthShading = on; }
 
 private:
+    void computeLighting(Vertex &v0, Vertex &v1, Vertex &v2, const Material &material, std::vector<Light*> lights);
     void setFragmentColor(const Vec3 &v, Color &color);
     Color applyDepthShading(const Color &color, float z) const;
     bool isBackFace(const Triangle &t, const std::vector<Vertex> &vertices);
     Vec3 clipAndProject(const Vec3& pos, const Mat4& projection);
     void clipping(Vec3 &v);
     void line(const Vec3 &p0, const Vec3 &p1, float z0, float z1, const Color &color);
-    void triangle(const Vec3 &p1, const Vec3 &p2, const Vec3 &p3, float z1, float z2, float z3, const Color &color);
+    void triangle(const Vertex &v1, const Vertex &v2, const Vertex &v3, float z1, float z2, float z3, const Material &material);
 };

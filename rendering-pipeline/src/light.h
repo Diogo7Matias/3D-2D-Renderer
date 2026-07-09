@@ -61,8 +61,14 @@ public:
         Vec3 H = (L + V).normalize();
 
         float diffuse = std::max(0.0f, normal.dot(L));
-        float specular = std::pow(std::max(0.0f, normal.dot(H)), material.shininess());
+        float specular = std::max(0.0f, std::pow(normal.dot(H), material.shininess()));
 
-        return _color * _intensity * (material.diffusionK() * diffuse + material.specularK() * specular);
+        const float a = 1.0f;
+        const float b = 0.045f;
+        const float c = 0.0075f;
+        const float d = (_viewPosition - vPos).length();
+        float attenuation = 1.0f / (a + b * d + c * d * d);
+
+        return _color * attenuation * _intensity * (material.diffusionK() * diffuse + material.specularK() * specular);
     }
 };

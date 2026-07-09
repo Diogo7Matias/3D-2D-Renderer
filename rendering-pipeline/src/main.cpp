@@ -28,18 +28,21 @@ bool wireframe = false;
 bool depthShading = false;
 
 void createObjects() {
-    Material mat = DiffuseMaterial(Color(0xFF0000FF), 0.40, 1);
-    Material mat2 = DiffuseMaterial(Color(0xFF00FF00), 0.40, 1);
+    Material matte = MatteMaterial(Color(0xFF0000FF));
+    matte.setShading(GOURAUD);
+    Material plastic = PlasticMaterial(Color(0xFF00FFFF));
+    Material metal = MetalMaterial(Color(0xFF0000FF));
+    Material glossy = GlossyMaterial(Color(0xFF0000FF));
 
     Geometry::Cube bigCube = Geometry::Cube(Vec3(2, 0, -3), 1);
     Geometry::Cube smallCube = Geometry::Cube(Vec3(2, -0.25, -2.25), 0.5);
     Geometry::Sphere sphere = Geometry::Sphere(Vec3(0, 0, -2), 1, 32);
 
-    Mesh bcMesh = Mesh(bigCube, mat);
+    Mesh bcMesh = Mesh(bigCube, matte);
     scene.add(bcMesh);
-    Mesh scMesh = Mesh(smallCube, mat2);
+    Mesh scMesh = Mesh(smallCube, matte);
     scene.add(scMesh);
-    Mesh sMesh = Mesh(sphere, mat);
+    Mesh sMesh = Mesh(sphere, matte);
     scene.add(sMesh);
 }
 

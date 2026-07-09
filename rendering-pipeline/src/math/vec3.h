@@ -46,6 +46,10 @@ struct Vec3 {
         return {x / length, y / length, z / length};
     }
 
+    float length() const {
+        return std::sqrt(x *x + y * y + z * z);
+    }
+
     void print() const {
         std::cout << "(" << x << ", " << y << ", " << z << ")";
     }
