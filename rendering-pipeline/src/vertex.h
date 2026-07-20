@@ -6,7 +6,7 @@
 struct Vertex {
     Vec3 position;
     Vec3 normal;
-    Color color;
+    Color color = Color(0x000000);
     int materialIndex = -1; // -1 means unassigned
 
     Vertex(Vec3 position, Vec3 normal, Color color, int materialIndex) : position(position), normal(normal), color(color), materialIndex(materialIndex) {}

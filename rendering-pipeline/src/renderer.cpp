@@ -12,7 +12,7 @@ void Renderer::render(const Scene &scene, const Camera &camera) {
     std::vector<Material> materials = scene.materials();
     std::vector<Light*> lights = scene.getLights();
     
-    _fragmentBuffer.clear();
+    _fragmentBuffer.clear({0, 0, _background.asVec3()});
     _zbuffer.clear(std::numeric_limits<float>::infinity());
 
     Mat4 view = camera.viewMatrix();
@@ -121,8 +121,10 @@ void Renderer::clipping(Vec3 &v) {
 }
 
 void Renderer::computeLighting(Vertex &v0, Vertex &v1, Vertex &v2, const Material &material, const std::vector<Light*> lights) {
-    v0.color = v1.color = v2.color = material.getColor();
-    
+    if (lights.size() > 0) {
+        v0.color = v1.color = v2.color = material.getColor();
+    }
+
     switch (material.getShading()) {
         case FLAT: {
             Vec3 edge1 = v1.position - v0.position;

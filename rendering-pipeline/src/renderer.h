@@ -42,6 +42,7 @@ class Renderer {
     Window* _window;
     Buffer<Fragment> _fragmentBuffer;
     Buffer<float> _zbuffer;
+    Color _background = Color(0x000000);
     bool _wireframe = false;
     bool _depthShading = false;
 
@@ -79,6 +80,12 @@ public:
      * @param on true to enable depth shading, false to disable it.
      */
     void setDepthShading(bool on) { _depthShading = on; }
+
+    /**
+     * Sets the background color.
+     * @param color The color to be assigned.
+     */
+    void setBackground(const Color &color) { _background = color; }
 
 private:
     void computeLighting(Vertex &v0, Vertex &v1, Vertex &v2, const Material &material, std::vector<Light*> lights);

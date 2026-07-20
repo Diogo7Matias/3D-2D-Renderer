@@ -28,11 +28,11 @@ bool wireframe = false;
 bool depthShading = false;
 
 void createObjects() {
-    Material matte = MatteMaterial(Color(0xFF0000FF));
+    Material matte = MatteMaterial(Color(0x0000FF));
     matte.setShading(GOURAUD);
-    Material plastic = PlasticMaterial(Color(0xFF00FFFF));
-    Material metal = MetalMaterial(Color(0xFF0000FF));
-    Material glossy = GlossyMaterial(Color(0xFF0000FF));
+    Material plastic = PlasticMaterial(Color(0x00FFFF));
+    Material metal = MetalMaterial(Color(0x0000FF));
+    Material glossy = GlossyMaterial(Color(0x0000FF));
 
     Geometry::Cube bigCube = Geometry::Cube(Vec3(2, 0, -3), 1);
     Geometry::Cube smallCube = Geometry::Cube(Vec3(2, -0.25, -2.25), 0.5);
@@ -65,14 +65,14 @@ void createCameras() {
 }
 
 void createLights() {
-    std::unique_ptr<Light> ambient_l = std::make_unique<AmbientLight>(Color(0xffffff));
+    std::unique_ptr<Light> ambient_l = std::make_unique<AmbientLight>(Color(0x00ff00));
     scene.add(std::move(ambient_l));
 
     Vec3 pos1 = Vec3(5, 5, -1.5);
     std::unique_ptr<Light> light1 = std::make_unique<PointLight>(pos1, Color(0xff0000));
     scene.add(std::move(light1));
 
-    Vec3 pos2 = Vec3(0, -5, -1.5);
+    Vec3 pos2 = Vec3(0, 5, 1.5);
     std::unique_ptr<Light> light2 = std::make_unique<PointLight>(pos2, Color(0xffffff));
     scene.add(std::move(light2));
 }
@@ -118,6 +118,8 @@ int main() {
         SDL_TEXTUREACCESS_STREAMING,
         WIDTH, HEIGHT
     );
+
+    renderer.setBackground(Color(0x00d3a0));
 
     createObjects();
     createCameras();
