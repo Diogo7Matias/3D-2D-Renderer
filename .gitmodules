@@ -1,0 +1,3 @@
+[submodule "rendering-pipeline/vendored/SDL"]
+	path = rendering-pipeline/vendored/SDL
+	url = https://github.com/libsdl-org/SDL.git
