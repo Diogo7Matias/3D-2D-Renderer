@@ -10,6 +10,8 @@ It covers fundamental concepts for generating 3D images.
 - RayTracing Algorithm
 
 ## Rendering Pipeline
+Renders a 3D scene with objects, lights and cameras in real time. <br>
+<br>
 It's divided into three main layers:
 
 - Application - Contains application logic. Allows the user to create a 3D scene with objects, lights and cameras.
@@ -19,6 +21,11 @@ It's divided into three main layers:
 - Rasterization - Converts processed data into pixels and draws the final scene onto the screen. Makes use of SDL3 to assist in the final steps.
 
 ### Build and run
+
+Run the following after cloning this repo
+```s
+git submodule update --init
+```
 
 Navigate to `/rendering-pipeline`
 ```s
@@ -34,7 +41,10 @@ make
 
 ## RayTracer
 
-A simple recursive ray tracer that renders a scene of spheres with basic lighting, shadows, reflection, and refraction.
+A simple recursive ray tracer that renders a scene of spheres with basic lighting, shadows, reflection, and refraction. <br>
+This renderer does not output frames in real time, as it is computationally expensive. Instead it produces a single image. <br>
+<br>
+The ray tracer includes the following features:
 
 - Sphere-based ray–object intersection
 - Diffuse shading with point light sources
