@@ -34,16 +34,21 @@ void createObjects() {
     Material metal = MetalMaterial(Color(0x0000FF));
     Material glossy = GlossyMaterial(Color(0x0000FF));
 
-    Geometry::Cube bigCube = Geometry::Cube(Vec3(2, 0, -3), 1);
-    Geometry::Cube smallCube = Geometry::Cube(Vec3(2, -0.25, -2.25), 0.5);
-    Geometry::Sphere sphere = Geometry::Sphere(Vec3(0, 0, -2), 1, 32);
+    Geometry::Cube bigCube = Geometry::Cube(1);
+    Geometry::Cube smallCube = Geometry::Cube(0.5);
+    Geometry::Sphere sphere = Geometry::Sphere(1, 32);
 
-    Mesh bcMesh = Mesh(bigCube, matte);
-    scene.add(bcMesh);
-    Mesh scMesh = Mesh(smallCube, matte);
-    scene.add(scMesh);
-    Mesh sMesh = Mesh(sphere, matte);
-    scene.add(sMesh);
+    // Mesh bcMesh = Mesh(bigCube, matte);
+    // bcMesh.setPosition(Vec3(2, 0, -3));
+    // scene.add(bcMesh);
+
+    // Mesh scMesh = Mesh(smallCube, matte);
+    // scMesh.setPosition(Vec3(2, -0.25, -2.25));
+    // scene.add(scMesh);
+
+    // Mesh sMesh = Mesh(sphere, matte);
+    // sMesh.setPosition(Vec3(0, 2, -2));
+    // scene.add(sMesh);
 }
 
 void createCameras() {
@@ -106,7 +111,7 @@ void display(uint32_t* framebuffer, SDL_Renderer* sdl_renderer, SDL_Texture* tex
     SDL_RenderPresent(sdl_renderer);
 }
 
-int main() {
+int main(int argc, char* argv[]) {
     SDL_Init(SDL_INIT_VIDEO);
 
     uint32_t framebuffer[WIDTH * HEIGHT];
@@ -122,6 +127,14 @@ int main() {
     renderer.setBackground(Color(0x00d3a0));
 
     createObjects();
+
+    // load OBJ model from command line argument
+    Mesh objMesh = renderer.loadOBJModel(argv[1], PlasticMaterial(Color(0x00FFFF)));
+    objMesh.setPosition(Vec3(0, -2, 0));
+    objMesh.setRotationDegrees(Vec3(0, 90, 90));
+    objMesh.setScale(Vec3(0.06, 0.06, 0.06));
+    scene.add(objMesh);
+
     createCameras();
     createLights();
 

@@ -35,7 +35,8 @@ public:
 
     void zoom(float factor)  {
         _zoom *= factor;
-        _zoom = std::clamp(_zoom, 0.5f, 10.0f);
+        // TODO: adjust clamp later. Commented out for debug purposes
+        // _zoom = std::clamp(_zoom, 0.5f, 10.0f);
     }
 
     void setPosition(Vec3 position) {

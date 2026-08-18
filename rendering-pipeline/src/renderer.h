@@ -87,6 +87,16 @@ public:
      */
     void setBackground(const Color &color) { _background = color; }
 
+    /**
+     * Loads an OBJ model from a file.
+     * Creates a Mesh that can be added to the scene.
+     * 
+     * @param filename Path to the .obj file
+     * @param material Material to apply to the model
+     * @return A Mesh containing the loaded model geometry
+     */
+    Mesh loadOBJModel(const std::string& filename, const Material& material);
+
 private:
     void computeLighting(Vertex &v0, Vertex &v1, Vertex &v2, const Material &material, std::vector<Light*> lights);
     void setFragmentColor(const Vec3 &v, Color &color);

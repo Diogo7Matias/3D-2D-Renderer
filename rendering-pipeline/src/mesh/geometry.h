@@ -27,13 +27,10 @@ namespace Geometry {
     /////////////////////////////////////////////////////////////////////////////
 
     class Cube : public Primitive {
-        Vec3 _position;
         float _size;
 
     public:
-        Cube(const Vec3 &position, float size);
-        
-        const Vec3 &position() const { return _position; }
+        Cube(float size);
 
         float size() const { return _size; }
 
@@ -45,16 +42,21 @@ namespace Geometry {
     /////////////////////////////////////////////////////////////////////////////
 
     class Sphere : public Primitive {
-        Vec3 _center;
         float _radius;
         size_t _segments;
 
     public:
-        Sphere(const Vec3 &center, float radius, size_t segments);
-        Sphere(const Vec3 &center, float radius);
+        Sphere(float radius, size_t segments);
+        Sphere(float radius);
 
-        const Vec3 &center() const { return _center; }
-        
         float radius() const { return _radius; }
+    };
+
+    /////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////
+
+    class OBJModel : public Primitive {
+    public:
+        OBJModel(const std::vector<Vertex>& vertices, const std::vector<Triangle>& triangles);
     };
 }
