@@ -93,9 +93,9 @@ public:
      * 
      * @param filename Path to the .obj file
      * @param material Material to apply to the model
-     * @return A Mesh containing the loaded model geometry
+     * @return A Mesh containing the loaded model geometry or std::nullopt if the operation fails
      */
-    Mesh loadOBJModel(const std::string& filename, const Material& material);
+    std::optional<Mesh> loadOBJModel(const std::string& filename, const Material& material);
 
 private:
     void computeLighting(Vertex &v0, Vertex &v1, Vertex &v2, const Material &material, std::vector<Light*> lights);

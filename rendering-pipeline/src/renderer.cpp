@@ -4,6 +4,7 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include <optional>
 
 #include "renderer.h"
 #include "math/vec4.h"
@@ -260,12 +261,12 @@ void Renderer::triangle(const Vertex &v1, const Vertex &v2, const Vertex &v3, fl
     }
 }
 
-Mesh Renderer::loadOBJModel(const std::string& filename, const Material& material) {
+std::optional<Mesh> Renderer::loadOBJModel(const std::string& filename, const Material& material) {
     std::ifstream objFile(filename);
 
     if (!objFile.is_open()) {
         std::cerr << "Error: Could not open OBJ file: " << filename << std::endl;
-        return Mesh(Geometry::Cube(0.1f), material); // return a dummy mesh
+        return std::nullopt;
     }
 
     std::vector<Vec3> positions;
@@ -282,7 +283,8 @@ Mesh Renderer::loadOBJModel(const std::string& filename, const Material& materia
         std::istringstream iss(line);
         std::string type;
         iss >> type;
-
+        
+        // NOTE: currently ignores texture coordinates (vt)
         if (type == "v") { // vertex position
             float x, y, z;
             iss >> x >> y >> z;
@@ -294,77 +296,75 @@ Mesh Renderer::loadOBJModel(const std::string& filename, const Material& materia
             normals.push_back(Vec3(x, y, z).normalize());
         }
         else if (type == "f") { // face
-
-            // WARNING: this next segment was vibe coded and may not be working properly
-            // TODO: check for correctness
-            
-            std::string v1_str, v2_str, v3_str;
-            iss >> v1_str >> v2_str >> v3_str;
-
-            // Parse face vertex token which can be: v, v/vt, v//vn or v/vt/vn
+            // parses face vertex token which can be: v, v/vt, v//vn or v/vt/vn
             auto parseFaceVertex = [](const std::string& token) -> std::pair<int,int> {
                 std::vector<std::string> parts;
                 std::string part;
                 std::istringstream ss(token);
+                
                 while (std::getline(ss, part, '/')) parts.push_back(part);
-                int vIdx = -1;
-                int vnIdx = -1;
+
+                int v_idx = -1;
+                int vn_idx = -1;
+
                 if (parts.size() >= 1 && !parts[0].empty()) {
-                    vIdx = std::stoi(parts[0]) - 1; // OBJ indices are 1-based
+                    v_idx = std::stoi(parts[0]) - 1; // OBJ indices are 1-based
                 }
                 if (parts.size() == 3 && !parts[2].empty()) {
-                    vnIdx = std::stoi(parts[2]) - 1;
+                    vn_idx = std::stoi(parts[2]) - 1;
                 }
-                return {vIdx, vnIdx};
+                return {v_idx, vn_idx};
             };
 
-            auto p1 = parseFaceVertex(v1_str);
-            auto p2 = parseFaceVertex(v2_str);
-            auto p3 = parseFaceVertex(v3_str);
+            std::vector<std::string> tokens;
+            std::string token;
+            while (iss >> token) tokens.push_back(token);
 
-            int v1_idx = p1.first, v2_idx = p2.first, v3_idx = p3.first;
-            int v1_n_idx = p1.second, v2_n_idx = p2.second, v3_n_idx = p3.second;
+            // triangulate as fan:
+            // for polygons with > 3 vertices, divide into triangles using the first vertex as a common point
+            for (size_t i = 1; i + 1 < tokens.size(); ++i) {
+                auto p1 = parseFaceVertex(tokens[0]);
+                auto p2 = parseFaceVertex(tokens[i]);
+                auto p3 = parseFaceVertex(tokens[i + 1]);
 
-            // Validate position indices
-            if (v1_idx < 0 || v2_idx < 0 || v3_idx < 0 ||
-                v1_idx >= (int)positions.size() || v2_idx >= (int)positions.size() || v3_idx >= (int)positions.size()) {
-                std::cerr << "Warning: face references invalid vertex index in " << filename << std::endl;
-                continue;
+                int v1_idx = p1.first, v2_idx = p2.first, v3_idx = p3.first;
+                int vn1_idx = p1.second, vn2_idx = p2.second, vn3_idx = p3.second;
+
+                // validate position indices
+                // NOTE: negative (relative) OBJ indices are not supported
+                if (v1_idx < 0 || v2_idx < 0 || v3_idx < 0 ||
+                    v1_idx >= (int)positions.size() || v2_idx >= (int)positions.size() || v3_idx >= (int)positions.size()) {
+                    std::cerr << "Warning: face references invalid vertex index in " << filename << std::endl;
+                    continue;
+                }
+
+                Vec3 v1_pos = positions[v1_idx];
+                Vec3 v2_pos = positions[v2_idx];
+                Vec3 v3_pos = positions[v3_idx];
+
+                // calculate face normal if normals weren't provided for this face
+                Vec3 edge1 = v2_pos - v1_pos;
+                Vec3 edge2 = v3_pos - v1_pos;
+                Vec3 faceNormal = edge1.cross(edge2).normalize();
+
+                // choose normals: prefer explicit vn index, otherwise fall back to face normal
+                Vec3 v1_normal = faceNormal;
+                Vec3 v2_normal = faceNormal;
+                Vec3 v3_normal = faceNormal;
+                if (vn1_idx >= 0 && vn1_idx < (int)normals.size()) v1_normal = normals[vn1_idx];
+                if (vn2_idx >= 0 && vn2_idx < (int)normals.size()) v2_normal = normals[vn2_idx];
+                if (vn3_idx >= 0 && vn3_idx < (int)normals.size()) v3_normal = normals[vn3_idx];
+
+                // add vertices
+                vertices.push_back(Vertex(v1_pos, v1_normal, -1));
+                vertices.push_back(Vertex(v2_pos, v2_normal, -1));
+                vertices.push_back(Vertex(v3_pos, v3_normal, -1));
+
+                triangles.push_back(Triangle(vertexCount, vertexCount + 1, vertexCount + 2));
+                vertexCount += 3;
             }
-
-            Vec3 v1_pos = positions[v1_idx];
-            Vec3 v2_pos = positions[v2_idx];
-            Vec3 v3_pos = positions[v3_idx];
-
-            // Calculate face normal if normals weren't provided for this face
-            Vec3 edge1 = v2_pos - v1_pos;
-            Vec3 edge2 = v3_pos - v1_pos;
-            Vec3 faceNormal = edge1.cross(edge2).normalize();
-
-            // Choose normals: prefer explicit vn index, otherwise fall back to face normal
-            Vec3 v1_normal = faceNormal;
-            Vec3 v2_normal = faceNormal;
-            Vec3 v3_normal = faceNormal;
-            if (v1_n_idx >= 0 && v1_n_idx < (int)normals.size()) v1_normal = normals[v1_n_idx];
-            if (v2_n_idx >= 0 && v2_n_idx < (int)normals.size()) v2_normal = normals[v2_n_idx];
-            if (v3_n_idx >= 0 && v3_n_idx < (int)normals.size()) v3_normal = normals[v3_n_idx];
-
-            // Add vertices
-            Vertex vert1(v1_pos, v1_normal, Color(0xFFFFFF), 0);
-            Vertex vert2(v2_pos, v2_normal, Color(0xFFFFFF), 0);
-            Vertex vert3(v3_pos, v3_normal, Color(0xFFFFFF), 0);
-
-            vertices.push_back(vert1);
-            vertices.push_back(vert2);
-            vertices.push_back(vert3);
-
-            // Add triangle (indices are relative to this mesh)
-            triangles.push_back(Triangle(vertexCount, vertexCount + 1, vertexCount + 2));
-            vertexCount += 3;
         }
     }
-
-    objFile.close();
 
     return Mesh(Geometry::OBJModel(vertices, triangles), material);
 }

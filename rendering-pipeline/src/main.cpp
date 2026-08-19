@@ -1,6 +1,7 @@
 #include <SDL3/SDL.h>
 #include <memory>
 #include <iostream>
+#include <optional>
 
 #include "math/vec3.h"
 #include "window.h"
@@ -80,6 +81,10 @@ void createLights() {
     Vec3 pos2 = Vec3(0, 5, 1.5);
     std::unique_ptr<Light> light2 = std::make_unique<PointLight>(pos2, Color(0xffffff));
     scene.add(std::move(light2));
+
+    Vec3 pos3 = Vec3(0, 0, 4);
+    std::unique_ptr<Light> light3 = std::make_unique<PointLight>(pos3, Color(0xff0000));
+    scene.add(std::move(light3));
 }
 
 void update() {
@@ -126,15 +131,25 @@ int main(int argc, char* argv[]) {
 
     renderer.setBackground(Color(0x00d3a0));
 
-    createObjects();
-
     // load OBJ model from command line argument
-    Mesh objMesh = renderer.loadOBJModel(argv[1], PlasticMaterial(Color(0x00FFFF)));
-    objMesh.setPosition(Vec3(0, -2, 0));
-    objMesh.setRotationDegrees(Vec3(0, 90, 90));
-    objMesh.setScale(Vec3(0.06, 0.06, 0.06));
-    scene.add(objMesh);
+    if (argc < 2) {
+        std::cerr << "Could not load 3D model.\n"
+        << "Expected .obj file as argument but none provided.\n"
+        << "Usage: " << argv[0] << " <path_to_obj_file>" << std::endl;
+    } else {
+        Material matte = MatteMaterial(Color(0x0000FF));
+        std::optional<Mesh> objMesh = renderer.loadOBJModel(argv[1], matte);
+        if (objMesh) {
+            objMesh->setPosition(Vec3(0, -2, 0));
+            objMesh->setRotationDegrees(Vec3(0, 90, 90));
+            objMesh->setScale(Vec3(0.06, 0.06, 0.06));
+            scene.add(*objMesh);
+        } else {
+            std::cerr << "Failed to load OBJ model from file: " << argv[1] << std::endl;
+        }
+    }
 
+    createObjects();
     createCameras();
     createLights();
 
