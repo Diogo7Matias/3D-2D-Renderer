@@ -11,7 +11,6 @@
 #include "math/mat4.h"
 
 void Renderer::render(const Scene &scene, const Camera &camera) {
-    std::vector<Vertex> vertices = scene.vertices();
     std::vector<Material> materials = scene.materials();
     std::vector<Light*> lights = scene.getLights();
     
@@ -21,59 +20,76 @@ void Renderer::render(const Scene &scene, const Camera &camera) {
     Mat4 view = camera.viewMatrix();
     Mat4 projection = camera.projectionMatrix();
     Mat4 viewport = _window->viewportMatrix();
-    Mat4 normalMatrix = view.inverseTranspose();
 
-    // transform lights and vertices to view space (camera coordinates)
+    // Transform lights to view space (camera coordinates)
     for (Light* light : lights) {
         if (PointLight* pl = dynamic_cast<PointLight*>(light)) {
             pl->setViewPosition(view);
         }
     }
-    for (Vertex &v : vertices) {
-        v.position = (view * v.position.toVec4()).toVec3();
-        Vec4 n = normalMatrix * Vec4(v.normal.x, v.normal.y, v.normal.z, 0.0f);
-        v.normal = Vec3(n.x, n.y, n.z).normalize();
-    }
 
-    // Calculate vertex colors, project coordinates, clip points outside frustum 
-    // and pass result to fragment buffer
-    if (_wireframe) {
-        for (const auto& edge : scene.edges()) {
-            Vertex &v0 = vertices[edge.first];
-            Vertex &v1 = vertices[edge.second];
-            Vec4 proj0 = clipAndProject(v0.position, projection).toVec4();
-            Vec4 proj1 = clipAndProject(v1.position, projection).toVec4();
-            Vec3 p0 = (viewport * proj0).toVec3();
-            Vec3 p1 = (viewport * proj1).toVec3();
-            Color color = materials[v0.materialIndex].getColor();
-            line(p0, p1, proj0.z, proj1.z, color);
+    for (Mesh& sceneObject : scene.objects()) {
+        Mat4 translate = Mat4::translation(sceneObject.position());
+        Mat4 rotate = Mat4::rotation(sceneObject.rotation().x, sceneObject.rotation().y, sceneObject.rotation().z);
+        Mat4 scale = Mat4::scale(sceneObject.scale());
+        Mat4 model = translate * rotate * scale;
+        Mat4 viewModel = view * model;
+        Mat4 normalMatrix = viewModel.inverseTranspose();
+        
+        const Material& material = sceneObject.material();
+        std::vector<Vertex> vertices;
+
+        // Transform vertices and normals from object local space to view space
+        for (const auto &vertex : sceneObject.geometry().getVertices()) {
+            Vertex v = vertex;
+            v.position = (viewModel * v.position.toVec4()).toVec3();
+            
+            Vec4 n = normalMatrix * Vec4(v.normal.x, v.normal.y, v.normal.z, 0.0f);
+            v.normal = Vec3(n.x, n.y, n.z).normalize();
+            vertices.push_back(v);
         }
-    } else {
-        for (const Triangle& t : scene.triangles()) {
-            Vertex& v0 = vertices[t.v0];
-            Vertex& v1 = vertices[t.v1];
-            Vertex& v2 = vertices[t.v2];
-            Material& material = materials[v0.materialIndex];
-    
-            if (isBackFace(t, vertices)) continue;
-            
-            if (!_depthShading) {
-                computeLighting(v0, v1, v2, material, lights);
-            }
-    
-            Vec4 proj0 = clipAndProject(v0.position, projection).toVec4();
-            Vec4 proj1 = clipAndProject(v1.position, projection).toVec4();
-            Vec4 proj2 = clipAndProject(v2.position, projection).toVec4();
-            
-            Vec3 p0 = (viewport * proj0).toVec3();
-            Vec3 p1 = (viewport * proj1).toVec3();
-            Vec3 p2 = (viewport * proj2).toVec3();
-            
-            Vertex v0cpy = Vertex(p0, v0.normal, v0.color, v0.materialIndex);
-            Vertex v1cpy = Vertex(p1, v1.normal, v1.color, v1.materialIndex);
-            Vertex v2cpy = Vertex(p2, v2.normal, v2.color, v2.materialIndex);
 
-            triangle(v0cpy, v1cpy, v2cpy, proj0.z, proj1.z, proj2.z, material);
+        // Calculate vertex colors, project coordinates, clip points outside frustum 
+        // and pass result to fragment buffer
+        if (_wireframe) {
+            for (const auto& edge : sceneObject.geometry().getEdges()) {
+                const Vertex &v0 = vertices[edge.first];
+                const Vertex &v1 = vertices[edge.second];
+
+                Vec4 proj0 = clipAndProject(v0.position, projection).toVec4();
+                Vec4 proj1 = clipAndProject(v1.position, projection).toVec4();
+                Vec3 p0 = (viewport * proj0).toVec3();
+                Vec3 p1 = (viewport * proj1).toVec3();
+                Color color = material.getColor();
+                line(p0, p1, proj0.z, proj1.z, color);
+            }
+        } else {
+            for (const Triangle& t : sceneObject.geometry().getTriangles()) {
+                Vertex& v0 = vertices[t.v0];
+                Vertex& v1 = vertices[t.v1];
+                Vertex& v2 = vertices[t.v2];
+
+                if (isBackFace(t, vertices)) continue;
+                
+                if (!_depthShading) {
+                    computeLighting(v0, v1, v2, material, lights);
+                }
+                
+                // TODO: investigate this stage of the pipeline
+                Vec4 proj0 = clipAndProject(v0.position, projection).toVec4();
+                Vec4 proj1 = clipAndProject(v1.position, projection).toVec4();
+                Vec4 proj2 = clipAndProject(v2.position, projection).toVec4();
+                
+                Vec3 p0 = (viewport * proj0).toVec3();
+                Vec3 p1 = (viewport * proj1).toVec3();
+                Vec3 p2 = (viewport * proj2).toVec3();
+                
+                Vertex v0cpy = Vertex(p0, v0.normal, v0.color);
+                Vertex v1cpy = Vertex(p1, v1.normal, v1.color);
+                Vertex v2cpy = Vertex(p2, v2.normal, v2.color);
+    
+                triangle(v0cpy, v1cpy, v2cpy, proj0.z, proj1.z, proj2.z, material);
+            }
         }
     }
 }
@@ -85,10 +101,14 @@ Vec3 Renderer::clipAndProject(const Vec3& pos, const Mat4& projection) {
 }
 
 bool Renderer::isBackFace(const Triangle &t, const std::vector<Vertex> &vertices) {
-    const Vertex& v0 = vertices[t.v0];
-    const Vertex& v1 = vertices[t.v1];
-    const Vertex& v2 = vertices[t.v2];
-    Vec3 normal = (v0.normal + v1.normal + v2.normal).normalize();
+    const Vec3& p0 = vertices[t.v0].position;
+    const Vec3& p1 = vertices[t.v1].position;
+    const Vec3& p2 = vertices[t.v2].position;
+
+    Vec3 edge1 = p1 - p0;
+    Vec3 edge2 = p2 - p0;
+
+    Vec3 normal = edge1.cross(edge2).normalize();
     return normal.z > 0;
 }
 
@@ -123,7 +143,7 @@ void Renderer::clipping(Vec3 &v) {
     }
 }
 
-void Renderer::computeLighting(Vertex &v0, Vertex &v1, Vertex &v2, const Material &material, const std::vector<Light*> lights) {
+void Renderer::computeLighting(Vertex &v0, Vertex &v1, Vertex &v2, const Material &material, const std::vector<Light*>& lights) {
     if (lights.size() > 0) {
         v0.color = v1.color = v2.color = material.getColor();
     }

@@ -98,7 +98,7 @@ public:
     std::optional<Mesh> loadOBJModel(const std::string& filename, const Material& material);
 
 private:
-    void computeLighting(Vertex &v0, Vertex &v1, Vertex &v2, const Material &material, std::vector<Light*> lights);
+    void computeLighting(Vertex &v0, Vertex &v1, Vertex &v2, const Material &material, const std::vector<Light*>& lights);
     void setFragmentColor(const Vec3 &v, Color &color);
     Color applyDepthShading(const Color &color, float z) const;
     bool isBackFace(const Triangle &t, const std::vector<Vertex> &vertices);

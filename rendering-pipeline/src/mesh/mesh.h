@@ -16,7 +16,7 @@ public:
 
     Geometry::Primitive &geometry() { return _geometry; }
 
-    Material &material() { return _material; }
+    const Material &material() const { return _material; }
     
     const Vec3 &position() const { return _position; }
     const Vec3 &rotation() const { return _rotation; }

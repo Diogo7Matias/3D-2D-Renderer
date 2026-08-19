@@ -39,9 +39,9 @@ void createObjects() {
     Geometry::Cube smallCube = Geometry::Cube(0.5);
     Geometry::Sphere sphere = Geometry::Sphere(1, 32);
 
-    // Mesh bcMesh = Mesh(bigCube, matte);
-    // bcMesh.setPosition(Vec3(2, 0, -3));
-    // scene.add(bcMesh);
+    Mesh bcMesh = Mesh(bigCube, matte);
+    bcMesh.setPosition(Vec3(2, 0, -3));
+    scene.add(bcMesh);
 
     // Mesh scMesh = Mesh(smallCube, matte);
     // scMesh.setPosition(Vec3(2, -0.25, -2.25));
