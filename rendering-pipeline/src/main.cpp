@@ -56,7 +56,7 @@ void createCameras() {
     float aspect = (float)WIDTH / (float)HEIGHT;
     float halfHeight = 2.5f;
     float halfWidth = halfHeight * aspect;
-    Vec3 pos = Vec3(0, 0, 0);
+    Vec3 pos = Vec3(0, 0, 3);
 
     std::unique_ptr<Camera> camera1 = std::make_unique<PerspectiveCamera>(pos, 90, aspect, 0.1, 100);
     scene.add(std::move(camera1));
@@ -82,8 +82,8 @@ void createLights() {
     std::unique_ptr<Light> light2 = std::make_unique<PointLight>(pos2, Color(0xffffff));
     scene.add(std::move(light2));
 
-    Vec3 pos3 = Vec3(0, 0, 4);
-    std::unique_ptr<Light> light3 = std::make_unique<PointLight>(pos3, Color(0xff0000));
+    Vec3 pos3 = Vec3(-1.2, 1.5, 0);
+    std::unique_ptr<Light> light3 = std::make_unique<PointLight>(pos3, Color(0xff0000), 14);
     scene.add(std::move(light3));
 }
 

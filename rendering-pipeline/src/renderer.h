@@ -102,8 +102,8 @@ private:
     void setFragmentColor(const Vec3 &v, Color &color);
     Color applyDepthShading(const Color &color, float z) const;
     bool isBackFace(const Triangle &t, const std::vector<Vertex> &vertices);
-    Vec3 clipAndProject(const Vec3& pos, const Mat4& projection);
-    void clipping(Vec3 &v);
+    bool clipLine(Vec4& a, Vec4& b);
+    std::vector<Vec4> clipTriangle(const Vec4& v0, const Vec4& v1, const Vec4& v2);
     void line(const Vec3 &p0, const Vec3 &p1, float z0, float z1, const Color &color);
     void triangle(const Vertex &v1, const Vertex &v2, const Vertex &v3, float z1, float z2, float z3, const Material &material);
 };

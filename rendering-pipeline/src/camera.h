@@ -99,12 +99,12 @@ public:
 
         float tx = -(right + left) / 2;
         float ty = -(top + bottom) / 2;
-        float tz = (_far + _near) / 2;
+        float tz = -(_far + _near) / 2;
         Mat4 translation = Mat4::translation(Vec3(tx, ty, tz));
         
         float sx = 2 / (right - left);
         float sy = 2 / (top - bottom);
-        float sz = -2 / (_far - _near);
+        float sz = 2 / (_far - _near);
         Mat4 scale = Mat4::scale(Vec3(sx, sy, sz));
         
         return scale * translation;

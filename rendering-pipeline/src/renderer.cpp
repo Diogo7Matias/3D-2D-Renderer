@@ -55,13 +55,20 @@ void Renderer::render(const Scene &scene, const Camera &camera) {
             for (const auto& edge : sceneObject.geometry().getEdges()) {
                 const Vertex &v0 = vertices[edge.first];
                 const Vertex &v1 = vertices[edge.second];
+                
+                Vec4 proj0 = projection * v0.position.toVec4();
+                Vec4 proj1 = projection * v1.position.toVec4();
 
-                Vec4 proj0 = clipAndProject(v0.position, projection).toVec4();
-                Vec4 proj1 = clipAndProject(v1.position, projection).toVec4();
-                Vec3 p0 = (viewport * proj0).toVec3();
-                Vec3 p1 = (viewport * proj1).toVec3();
+                if (!clipLine(proj0, proj1)) continue;
+                
+                Vec3 ndc0 = proj0.toVec3();
+                Vec3 ndc1 = proj1.toVec3();
+                
+                Vec4 p0 = viewport * ndc0.toVec4();
+                Vec4 p1 = viewport * ndc1.toVec4();
+                
                 Color color = material.getColor();
-                line(p0, p1, proj0.z, proj1.z, color);
+                line(Vec3(p0.x, p0.y, p0.z), Vec3(p1.x, p1.y, p1.z), ndc0.z, ndc1.z, color);
             }
         } else {
             for (const Triangle& t : sceneObject.geometry().getTriangles()) {
@@ -74,30 +81,37 @@ void Renderer::render(const Scene &scene, const Camera &camera) {
                 if (!_depthShading) {
                     computeLighting(v0, v1, v2, material, lights);
                 }
-                
-                // TODO: investigate this stage of the pipeline
-                Vec4 proj0 = clipAndProject(v0.position, projection).toVec4();
-                Vec4 proj1 = clipAndProject(v1.position, projection).toVec4();
-                Vec4 proj2 = clipAndProject(v2.position, projection).toVec4();
-                
-                Vec3 p0 = (viewport * proj0).toVec3();
-                Vec3 p1 = (viewport * proj1).toVec3();
-                Vec3 p2 = (viewport * proj2).toVec3();
-                
-                Vertex v0cpy = Vertex(p0, v0.normal, v0.color);
-                Vertex v1cpy = Vertex(p1, v1.normal, v1.color);
-                Vertex v2cpy = Vertex(p2, v2.normal, v2.color);
-    
-                triangle(v0cpy, v1cpy, v2cpy, proj0.z, proj1.z, proj2.z, material);
+
+                Vec4 proj0 = projection * v0.position.toVec4();
+                Vec4 proj1 = projection * v1.position.toVec4();
+                Vec4 proj2 = projection * v2.position.toVec4();
+
+                std::vector<Vec4> polygon = clipTriangle(proj0, proj1, proj2);
+
+                // after clipping, triangle might get transformed to another polygon.
+                // therefore -> triangulate as fan
+                for (size_t i = 1; i + 1 < polygon.size(); ++i) {
+                    Vec4 c0 = polygon[0];
+                    Vec4 c1 = polygon[i];
+                    Vec4 c2 = polygon[i + 1];
+
+                    Vec3 ndc0 = c0.toVec3();
+                    Vec3 ndc1 = c1.toVec3();
+                    Vec3 ndc2 = c2.toVec3();
+
+                    Vec4 p0 = (viewport * ndc0.toVec4());
+                    Vec4 p1 = (viewport * ndc1.toVec4());
+                    Vec4 p2 = (viewport * ndc2.toVec4());
+
+                    Vertex v0cpy = Vertex({p0.x, p0.y, p0.z}, v0.normal, v0.color);
+                    Vertex v1cpy = Vertex({p1.x, p1.y, p1.z}, v1.normal, v1.color);
+                    Vertex v2cpy = Vertex({p2.x, p2.y, p2.z}, v2.normal, v2.color);
+
+                    triangle(v0cpy, v1cpy, v2cpy, ndc0.z, ndc1.z, ndc2.z, material);
+                }
             }
         }
     }
-}
-
-Vec3 Renderer::clipAndProject(const Vec3& pos, const Mat4& projection) {
-    Vec3 p = (projection * pos.toVec4()).toVec3();
-    clipping(p);
-    return p;
 }
 
 bool Renderer::isBackFace(const Triangle &t, const std::vector<Vertex> &vertices) {
@@ -109,38 +123,88 @@ bool Renderer::isBackFace(const Triangle &t, const std::vector<Vertex> &vertices
     Vec3 edge2 = p2 - p0;
 
     Vec3 normal = edge1.cross(edge2).normalize();
-    return normal.z > 0;
+    return normal.z <= 0;
 }
 
-// Cohen-Sutherland clipping algorithm
-void Renderer::clipping(Vec3 &v) {
-    // Define the clipping boundaries
-    const float xMin = -1.0f, xMax = 1.0f;
-    const float yMin = -1.0f, yMax = 1.0f;
-    const float zMin = -1.0f, zMax = 1.0f;
+// implements the Sutherland-Hodgman clipping algorithm for lines 
+bool Renderer::clipLine(Vec4& a, Vec4& b) {
+    auto clipLineAgainstPlane = [&a, &b](float da, float db) -> bool {
+        bool aInside = da >= 0.0f;
+        bool bInside = db >= 0.0f;
 
-    // Compute the outcode for the point
-    int outcode = 0;
-    if (v.x < xMin) outcode |= 1; // left
-    else if (v.x > xMax) outcode |= 2; // right
+        if (!aInside && !bInside)
+            return false;
 
-    if (v.y < yMin) outcode |= 4; // bottom
-    else if (v.y > yMax) outcode |= 8; // top
-    
-    if (v.z < zMin) outcode |= 16; // near
-    else if (v.z > zMax) outcode |= 32; // far
+        if (aInside != bInside) {
+            float t = da / (da - db);
 
-    // If the point is outside the clipping volume, set it to the nearest boundary
-    if (outcode != 0) {
-        if (outcode & 1) v.x = xMin; // left
-        else if (outcode & 2) v.x = xMax; // right
+            Vec4 intersection = a + (b - a) * t;
 
-        if (outcode & 4) v.y = yMin; // bottom
-        else if (outcode & 8) v.y = yMax; // top
+            if (!aInside)
+                a = intersection;
+            else
+                b = intersection;
+        }
 
-        if (outcode & 16) v.z = zMin; // near
-        else if (outcode & 32) v.z = zMax; // far
+        return true;
+    };
+
+    return not (!clipLineAgainstPlane(a.x + a.w, b.x + b.w) // left
+        || !clipLineAgainstPlane(a.w - a.x, b.w - b.x)      // right
+        || !clipLineAgainstPlane(a.y + a.w, b.y + b.w)      // bottom
+        || !clipLineAgainstPlane(a.w - a.y, b.w - b.y)      // top
+        || !clipLineAgainstPlane(a.z + a.w, b.z + b.w)      // near
+        || !clipLineAgainstPlane(a.w - a.z, b.w - b.z));    // far
+}
+
+// implements the Sutherland-Hodgman polygon clipping algorithm for triangles 
+std::vector<Vec4> Renderer::clipTriangle(const Vec4& v0, const Vec4& v1, const Vec4& v2) {
+    std::vector<Vec4> polygon = {v0, v1, v2};
+
+    for (int plane = 0; plane < 6; ++plane) {
+        if (polygon.empty())
+            break;
+
+        std::vector<Vec4> clipped;
+        Vec4 previous = polygon.back();
+
+        auto getDistance = [plane](const Vec4& v) {
+            switch (plane) {
+                case 0: return v.x + v.w; // left
+                case 1: return v.w - v.x; // right
+                case 2: return v.y + v.w; // bottom
+                case 3: return v.w - v.y; // top
+                case 4: return v.z + v.w; // near
+                case 5: return v.w - v.z; // far
+                default: return 0.0f;
+            }
+        };
+
+        float previousDistance = getDistance(previous);
+        bool previousInside = previousDistance >= 0.0f;
+
+        for (const Vec4& current : polygon) {
+            float currentDistance = getDistance(current);
+            bool currentInside = currentDistance >= 0.0f;
+
+            if (currentInside != previousInside) {
+                float t = previousDistance / (previousDistance - currentDistance);
+                Vec4 intersection = previous + (current - previous) * t;
+                clipped.push_back(intersection);
+            }
+
+            if (currentInside)
+                clipped.push_back(current);
+
+            previous = current;
+            previousDistance = currentDistance;
+            previousInside = currentInside;
+        }
+
+        polygon = std::move(clipped);
     }
+
+    return polygon;
 }
 
 void Renderer::computeLighting(Vertex &v0, Vertex &v1, Vertex &v2, const Material &material, const std::vector<Light*>& lights) {
